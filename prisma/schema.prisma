@@ -13,6 +13,8 @@ model User {
   image     String?
   createdAt DateTime @default(now())
   files     File[]
+  folders   Folder[]
+  tags      Tag[]
 }
 
 model File {
@@ -24,4 +26,58 @@ model File {
   storageKey String
   createdAt  DateTime @default(now())
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  folders FolderItem[]
+  tags    FileTag[]
+
+  @@index([userId, createdAt])
+}
+
+/// A flat album. A file can live in any number of folders.
+model Folder {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  items FolderItem[]
+
+  @@unique([userId, name])
+  @@index([userId, createdAt])
+}
+
+model FolderItem {
+  folderId String
+  fileId   String
+  addedAt  DateTime @default(now())
+  folder   Folder   @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  file     File     @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@id([folderId, fileId])
+  @@index([fileId])
+}
+
+/// Free-form label, stored lowercase and unique per user.
+model Tag {
+  id        String   @id @default(uuid())
+  userId    String
+  name      String
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  files FileTag[]
+
+  @@unique([userId, name])
+  @@index([userId, name])
+}
+
+model FileTag {
+  fileId String
+  tagId  String
+  file   File   @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([fileId, tagId])
+  @@index([tagId])
 }

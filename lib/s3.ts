@@ -1,4 +1,8 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  DeleteObjectsCommand,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export const s3 = new S3Client({
@@ -21,7 +25,28 @@ export async function createPresignedUploadUrl(
     ContentType: fileType,
   });
 
-  return getSignedUrl(s3, command, { expiresIn: 300 });
+  return getSignedUrl(s3, command, { expiresIn: 900 });
+}
+
+/** Best-effort cleanup — the DB row is the source of truth, so a failed
+ *  object delete must never block removing the file from the library. */
+export async function deleteObjects(keys: string[]): Promise<void> {
+  if (keys.length === 0) return;
+
+  // DeleteObjects caps out at 1000 keys per request.
+  for (let i = 0; i < keys.length; i += 1000) {
+    const batch = keys.slice(i, i + 1000);
+    try {
+      await s3.send(
+        new DeleteObjectsCommand({
+          Bucket: process.env.S3_BUCKET_NAME!,
+          Delete: { Objects: batch.map((Key) => ({ Key })), Quiet: true },
+        })
+      );
+    } catch (err) {
+      console.error("Failed to delete S3 objects", err);
+    }
+  }
 }
 
 export function getPublicUrl(key: string): string {
