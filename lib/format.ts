@@ -5,31 +5,44 @@ export function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
-const monthFormatter = new Intl.DateTimeFormat(undefined, {
-  month: "long",
-  year: "numeric",
-});
-
-const dayFormatter = new Intl.DateTimeFormat(undefined, {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-  year: "numeric",
-});
-
-const timeFormatter = new Intl.DateTimeFormat(undefined, {
-  hour: "numeric",
-  minute: "2-digit",
-});
-
-/** "August 2026" — the sticky heading above each run of photos. */
-export function formatMonth(iso: string): string {
-  return monthFormatter.format(new Date(iso));
+/**
+ * Server and browser can disagree on locale and timezone, which breaks
+ * hydration. Pass `local: false` for SSR and the first client render (fixed
+ * en-US + UTC, identical everywhere), then `true` once hydrated.
+ */
+function formatters(local: boolean) {
+  const locale = local ? undefined : "en-US";
+  const timeZone = local ? undefined : "UTC";
+  return {
+    month: new Intl.DateTimeFormat(locale, { month: "long", year: "numeric", timeZone }),
+    day: new Intl.DateTimeFormat(locale, {
+      weekday: "short",
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone,
+    }),
+    time: new Intl.DateTimeFormat(locale, { hour: "numeric", minute: "2-digit", timeZone }),
+  };
 }
 
-export function formatDateTime(iso: string): string {
+let localFormatters: ReturnType<typeof formatters> | null = null;
+const stableFormatters = formatters(false);
+
+function pick(local: boolean) {
+  if (!local) return stableFormatters;
+  return (localFormatters ??= formatters(true));
+}
+
+/** "August 2026" — the sticky heading above each run of photos. */
+export function formatMonth(iso: string, local = true): string {
+  return pick(local).month.format(new Date(iso));
+}
+
+export function formatDateTime(iso: string, local = true): string {
   const date = new Date(iso);
-  return `${dayFormatter.format(date)} · ${timeFormatter.format(date)}`;
+  const f = pick(local);
+  return `${f.day.format(date)} · ${f.time.format(date)}`;
 }
 
 export function pluralize(count: number, one: string, many = `${one}s`): string {

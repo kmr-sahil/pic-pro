@@ -1,13 +1,13 @@
 "use client";
 
 import Image from "next/image";
-import { memo, useRef } from "react";
+import { memo } from "react";
 
+import { useLongPress } from "@/components/library/useLongPress";
 import { CheckIcon, PlayIcon } from "@/components/ui/icons";
 import type { MediaItem } from "@/lib/types";
 
 const SIZES = "(max-width: 640px) 34vw, (max-width: 1024px) 22vw, 14vw";
-const LONG_PRESS_MS = 450;
 
 type Props = {
   item: MediaItem;
@@ -28,48 +28,14 @@ function PhotoTile({
   onToggle,
   onLongPress,
 }: Props) {
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const longPressed = useRef(false);
-  const origin = useRef<{ x: number; y: number } | null>(null);
+  const { handlers, longPressed } = useLongPress(() => onLongPress(item.id));
   const isVideo = item.fileType.startsWith("video/");
-
-  const startPress = (e: React.PointerEvent) => {
-    longPressed.current = false;
-    origin.current = { x: e.clientX, y: e.clientY };
-    timer.current = setTimeout(() => {
-      longPressed.current = true;
-      onLongPress(item.id);
-    }, LONG_PRESS_MS);
-  };
-
-  const endPress = () => {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
-    origin.current = null;
-  };
-
-  /** A finger that travels is scrolling, not long-pressing. */
-  const movePress = (e: React.PointerEvent) => {
-    const start = origin.current;
-    if (!start) return;
-    if (Math.abs(e.clientX - start.x) > 10 || Math.abs(e.clientY - start.y) > 10) {
-      endPress();
-    }
-  };
 
   return (
     <div className="relative">
       <button
         type="button"
-        onPointerDown={startPress}
-        onPointerMove={movePress}
-        onPointerUp={endPress}
-        onPointerLeave={endPress}
-        onPointerCancel={endPress}
-        onContextMenu={(e) => {
-          // Long press on touch also fires the context menu; suppress it.
-          if (longPressed.current) e.preventDefault();
-        }}
+        {...handlers}
         onClick={() => {
           if (longPressed.current) return;
           if (selecting) onToggle(item.id);

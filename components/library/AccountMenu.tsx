@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 
-import { SelectIcon, SignOutIcon } from "@/components/ui/icons";
+import { GridIcon, ListIcon, SelectIcon, SignOutIcon } from "@/components/ui/icons";
 import { signOutAction } from "@/lib/actions";
 import { formatBytes, pluralize } from "@/lib/format";
 
@@ -12,6 +12,8 @@ type Props = {
   itemCount: number;
   bytesUsed: number;
   onStartSelecting: () => void;
+  uploadMode: boolean;
+  onUploadModeChange: (next: boolean) => void;
 };
 
 export default function AccountMenu({
@@ -19,6 +21,8 @@ export default function AccountMenu({
   itemCount,
   bytesUsed,
   onStartSelecting,
+  uploadMode,
+  onUploadModeChange,
 }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -80,6 +84,40 @@ export default function AccountMenu({
               onStartSelecting();
             }}
           />
+
+          <button
+            type="button"
+            role="switch"
+            aria-checked={uploadMode}
+            onClick={() => onUploadModeChange(!uploadMode)}
+            className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition hover:bg-fill active:bg-fill-strong"
+          >
+            <span className="text-muted">
+              {uploadMode ? (
+                <ListIcon className="h-4.5 w-4.5" />
+              ) : (
+                <GridIcon className="h-4.5 w-4.5" />
+              )}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block">Upload mode</span>
+              <span className="block text-[12px] text-muted">
+                {uploadMode ? "File list, no previews" : "Showing previews"}
+              </span>
+            </span>
+            <span
+              aria-hidden="true"
+              className={`relative h-[22px] w-9 shrink-0 rounded-full transition-colors ${
+                uploadMode ? "bg-accent" : "bg-fill-strong"
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 h-[18px] w-[18px] rounded-full bg-white shadow transition-transform ${
+                  uploadMode ? "translate-x-[16px]" : "translate-x-0.5"
+                }`}
+              />
+            </span>
+          </button>
 
           <form action={signOutAction}>
             <MenuItem

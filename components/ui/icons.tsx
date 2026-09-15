@@ -127,6 +127,24 @@ export const SelectIcon = (p: IconProps) => (
   </Icon>
 );
 
+export const GridIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="4" y="4" width="6.5" height="6.5" rx="1.5" />
+    <rect x="13.5" y="4" width="6.5" height="6.5" rx="1.5" />
+    <rect x="4" y="13.5" width="6.5" height="6.5" rx="1.5" />
+    <rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.5" />
+  </Icon>
+);
+
+export const ListIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9 6.5h11M9 12h11M9 17.5h11" />
+    <circle cx="4.8" cy="6.5" r="0.9" fill="currentColor" stroke="none" />
+    <circle cx="4.8" cy="12" r="0.9" fill="currentColor" stroke="none" />
+    <circle cx="4.8" cy="17.5" r="0.9" fill="currentColor" stroke="none" />
+  </Icon>
+);
+
 export const UploadIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4.5 15.5v2.5A2 2 0 006.5 20h11a2 2 0 002-2v-2.5" />

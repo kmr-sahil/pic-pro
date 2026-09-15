@@ -5,14 +5,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AccountMenu from "@/components/library/AccountMenu";
 import AlbumSheet from "@/components/library/AlbumSheet";
 import CollectionSheet from "@/components/library/CollectionSheet";
+import FileRow from "@/components/library/FileRow";
 import PhotoTile from "@/components/library/PhotoTile";
 import SelectionBar from "@/components/library/SelectionBar";
 import TagSheet from "@/components/library/TagSheet";
 import UploadDock from "@/components/library/UploadDock";
 import Viewer from "@/components/library/Viewer";
+import { useHydrated } from "@/components/library/useHydrated";
 import { useServerAction } from "@/components/library/useServerAction";
+import { useUploadMode } from "@/components/library/useUploadMode";
 import { ChevronDownIcon, PhotosIcon, UploadIcon } from "@/components/ui/icons";
 import { useUploads } from "@/components/upload/UploadProvider";
+import {
+  consumeInterruptedPick,
+  markPickerClosed,
+  markPickerOpen,
+} from "@/components/upload/pickerGuard";
 import { deleteFiles } from "@/lib/actions";
 import { formatMonth, pluralize } from "@/lib/format";
 import type { Collection, LibraryData, MediaItem } from "@/lib/types";
@@ -26,6 +34,14 @@ type Props = {
 
 export default function Library({ data, user }: Props) {
   const { enqueue } = useUploads();
+  const [uploadMode, setUploadMode] = useUploadMode();
+
+  // Album covers are S3 images too — upload mode shows the album icon instead.
+  const folders = useMemo(
+    () =>
+      uploadMode ? data.folders.map((f) => ({ ...f, cover: null })) : data.folders,
+    [uploadMode, data.folders]
+  );
 
   const [collection, setCollection] = useState<Collection>({ kind: "all" });
   const [query, setQuery] = useState("");
@@ -50,6 +66,28 @@ export default function Library({ data, user }: Props) {
     const timer = setTimeout(() => setNotice(null), 3200);
     return () => clearTimeout(timer);
   }, [notice]);
+
+  const openPicker = useCallback(() => {
+    markPickerOpen();
+    fileInputRef.current?.click();
+  }, []);
+
+  // Phones may discard the tab while the gallery is open, losing the
+  // selection. Tell the user instead of silently showing nothing.
+  useEffect(() => {
+    if (consumeInterruptedPick()) {
+      notify("Page reloaded while picking — choose files again", "error");
+    }
+
+    // Getting focus back means the page survived the picker.
+    const input = fileInputRef.current;
+    window.addEventListener("focus", markPickerClosed);
+    input?.addEventListener("cancel", markPickerClosed);
+    return () => {
+      window.removeEventListener("focus", markPickerClosed);
+      input?.removeEventListener("cancel", markPickerClosed);
+    };
+  }, [notify]);
 
   // An album can disappear from under the current filter (deleted elsewhere).
   useEffect(() => {
@@ -89,16 +127,17 @@ export default function Library({ data, user }: Props) {
   }, [data.items, collection, query]);
 
   // Photos runs one heading per month, newest first.
+  const hydrated = useHydrated();
   const months = useMemo(() => {
     const groups: { key: string; items: MediaItem[] }[] = [];
     for (const item of visible) {
-      const key = formatMonth(item.createdAt);
+      const key = formatMonth(item.createdAt, hydrated);
       const last = groups[groups.length - 1];
       if (last?.key === key) last.items.push(item);
       else groups.push({ key, items: [item] });
     }
     return groups;
-  }, [visible]);
+  }, [visible, hydrated]);
 
   const title =
     collection.kind === "all"
@@ -212,6 +251,7 @@ export default function Library({ data, user }: Props) {
         accept="image/*,video/*"
         className="hidden"
         onChange={(e) => {
+          markPickerClosed();
           if (e.target.files?.length) addFiles(e.target.files);
           e.target.value = "";
         }}
@@ -221,7 +261,7 @@ export default function Library({ data, user }: Props) {
         {visible.length === 0 ? (
           <EmptyState
             filtered={collection.kind !== "all" || query.trim().length > 0}
-            onPick={() => fileInputRef.current?.click()}
+            onPick={openPicker}
           />
         ) : (
           months.map((group, groupIndex) => (
@@ -229,20 +269,36 @@ export default function Library({ data, user }: Props) {
               <h2 className="sticky top-0 z-10 bg-canvas/80 px-2.5 py-2 text-[13px] font-semibold backdrop-blur">
                 {group.key}
               </h2>
-              <div className="grid grid-cols-3 gap-0.5 sm:grid-cols-5 sm:gap-1 lg:grid-cols-7 xl:grid-cols-8">
-                {group.items.map((item, index) => (
-                  <PhotoTile
-                    key={item.id}
-                    item={item}
-                    selecting={selecting}
-                    selected={selected.has(item.id)}
-                    priority={groupIndex === 0 && index < 12}
-                    onOpen={setViewerId}
-                    onToggle={toggleSelected}
-                    onLongPress={startSelectionWith}
-                  />
-                ))}
-              </div>
+              {uploadMode ? (
+                <div className="mx-auto max-w-5xl">
+                  {group.items.map((item) => (
+                    <FileRow
+                      key={item.id}
+                      item={item}
+                      selecting={selecting}
+                      selected={selected.has(item.id)}
+                      onOpen={setViewerId}
+                      onToggle={toggleSelected}
+                      onLongPress={startSelectionWith}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-0.5 sm:grid-cols-5 sm:gap-1 lg:grid-cols-7 xl:grid-cols-8">
+                  {group.items.map((item, index) => (
+                    <PhotoTile
+                      key={item.id}
+                      item={item}
+                      selecting={selecting}
+                      selected={selected.has(item.id)}
+                      priority={groupIndex === 0 && index < 12}
+                      onOpen={setViewerId}
+                      onToggle={toggleSelected}
+                      onLongPress={startSelectionWith}
+                    />
+                  ))}
+                </div>
+              )}
             </section>
           ))
         )}
@@ -306,6 +362,8 @@ export default function Library({ data, user }: Props) {
             itemCount={data.items.length}
             bytesUsed={data.items.reduce((sum, item) => sum + item.size, 0)}
             onStartSelecting={() => setSelecting(true)}
+            uploadMode={uploadMode}
+            onUploadModeChange={setUploadMode}
           />
         )}
       </div>
@@ -313,7 +371,7 @@ export default function Library({ data, user }: Props) {
       {/* Bottom-right: upload control, or the selection action bar. */}
       <div className="fixed bottom-4 right-4 z-20 flex flex-col items-end gap-2 pb-[env(safe-area-inset-bottom)]">
         <UploadDock
-          onPickFiles={() => fileInputRef.current?.click()}
+          onPickFiles={openPicker}
           onNewAlbum={() => {
             setSheetTargetId(null);
             setSheet("albums");
@@ -379,7 +437,7 @@ export default function Library({ data, user }: Props) {
         onClose={() => setSheet(null)}
         collection={collection}
         onSelect={setCollection}
-        folders={data.folders}
+        folders={folders}
         tags={data.tags}
         totals={{
           all: data.items.length,
@@ -393,7 +451,7 @@ export default function Library({ data, user }: Props) {
       <AlbumSheet
         open={sheet === "albums"}
         targets={targets}
-        folders={data.folders}
+        folders={folders}
         onClose={() => {
           setSheet(null);
           setSheetTargetId(null);
