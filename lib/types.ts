@@ -40,3 +40,16 @@ export type Collection =
 export type ActionResult<T = null> =
   | { ok: true; data: T }
   | { ok: false; error: string };
+
+/**
+ * Formats the image optimizer can't decode. sharp here reads HEIF only as
+ * AVIF, so a HEIC straight off an iPhone 500s the optimizer and the tile
+ * comes out blank everywhere. Serving it raw at least renders on Safari,
+ * which is where these files come from. Drop this once uploads are
+ * transcoded to JPEG.
+ */
+const UNOPTIMIZABLE = /^image\/(heic|heif)/;
+
+export function isOptimizable(fileType: string): boolean {
+  return !UNOPTIMIZABLE.test(fileType);
+}

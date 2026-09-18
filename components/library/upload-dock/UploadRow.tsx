@@ -16,7 +16,15 @@ export default function UploadRow({ item, onRetry, onCancel }: Props) {
         {item.previewUrl ? (
           // Local object URL — never worth sending to the optimizer.
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
+          <img
+            src={item.previewUrl}
+            alt=""
+            // Originals are full-resolution: a 12 MP photo decodes to tens of
+            // MB even in a 36px box, so keep off-screen rows undecoded.
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover"
+          />
         ) : (
           <UploadIcon className="h-4 w-4" />
         )}

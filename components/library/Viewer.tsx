@@ -12,7 +12,7 @@ import {
   TrashIcon,
 } from "@/components/ui/icons";
 import { formatBytes, formatDateTime } from "@/lib/format";
-import type { MediaItem } from "@/lib/types";
+import { isOptimizable, type MediaItem } from "@/lib/types";
 
 type Props = {
   items: MediaItem[];
@@ -101,6 +101,7 @@ export default function Viewer({
             fill
             sizes="100vw"
             priority
+            unoptimized={!isOptimizable(item.fileType)}
             className="object-contain"
           />
         )}

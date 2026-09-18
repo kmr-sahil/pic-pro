@@ -47,6 +47,18 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const storedKeysRef = useRef(new Map<string, string>());
   const runningRef = useRef(new Set<string>());
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Every preview url we minted, so none survives the provider. */
+  const previewUrlsRef = useRef(new Set<string>());
+
+  // Object urls pin their blob until revoked, and clearFinished only reaches
+  // rows the user actually cleared. Release the rest when we go away.
+  useEffect(
+    () => () => {
+      for (const url of previewUrlsRef.current) URL.revokeObjectURL(url);
+      previewUrlsRef.current.clear();
+    },
+    []
+  );
 
   // ─── State helpers ──────────────────────────────────────────────────────
 
@@ -164,12 +176,20 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
       const type = resolveType(file);
       const rejection = validate(file);
+
+      // Only images preview; a video would have to be decoded to show one.
+      let previewUrl: string | null = null;
+      if (!rejection && type.startsWith("image/")) {
+        previewUrl = URL.createObjectURL(file);
+        previewUrlsRef.current.add(previewUrl);
+      }
+
       return {
         id,
         name: file.name,
         size: file.size,
         type,
-        previewUrl: type.startsWith("image/") ? URL.createObjectURL(file) : null,
+        previewUrl,
         status: rejection ? "failed" : "queued",
         progress: 0,
         error: rejection,
@@ -222,7 +242,10 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const clearFinished = useCallback(() => {
     for (const item of items) {
       if (!isFinished(item)) continue;
-      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      if (item.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl);
+        previewUrlsRef.current.delete(item.previewUrl);
+      }
       filesRef.current.delete(item.id);
       storedKeysRef.current.delete(item.id);
     }
