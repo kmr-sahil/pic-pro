@@ -248,7 +248,12 @@ export default function Library({ data, user }: Props) {
         ref={fileInputRef}
         type="file"
         multiple
-        accept="image/*,video/*"
+        // Naming the Apple types explicitly stops iOS transcoding every
+        // selected photo to JPEG before the picker will close — that wait is
+        // what makes a multi-photo pick look frozen. The originals come
+        // through as HEIC/HEVC instead; see resolveType for the blank-type
+        // case and isDisplayable for what the optimizer can still handle.
+        accept="image/*,image/heic,image/heif,video/*,video/quicktime,.heic,.heif,.hif,.mov"
         className="hidden"
         onChange={(e) => {
           markPickerClosed();

@@ -5,7 +5,7 @@ import { memo } from "react";
 
 import { useLongPress } from "@/components/library/useLongPress";
 import { CheckIcon, PlayIcon } from "@/components/ui/icons";
-import type { MediaItem } from "@/lib/types";
+import { isOptimizable, type MediaItem } from "@/lib/types";
 
 const SIZES = "(max-width: 640px) 34vw, (max-width: 1024px) 22vw, 14vw";
 
@@ -67,6 +67,7 @@ function PhotoTile({
               fill
               sizes={SIZES}
               priority={priority}
+              unoptimized={!isOptimizable(item.fileType)}
               className="object-cover"
             />
           )}

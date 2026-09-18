@@ -1,7 +1,8 @@
 /** Tuning knobs for the upload queue. */
 
-/** Files uploading at the same time. */
-export const CONCURRENCY = 3;
+/** Files uploading at the same time. Serial uploads read as "stuck" on a
+ *  phone; three keeps a mobile link busy without starving each transfer. */
+export const CONCURRENCY = 2;
 
 /** Total tries per file, counting the first one. */
 export const MAX_ATTEMPTS = 3;
